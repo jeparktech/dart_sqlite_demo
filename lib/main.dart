@@ -1,55 +1,55 @@
-import './carWash.dart';
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
+import 'package:flutter_dbdemo/DBHelper.dart';
+import 'package:flutter_dbdemo/carWash.dart';
+
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 void main() async {
-  //1. 데이터 베이스 열고 참조값 얻기
-  final Future<Database> database = openDatabase(
-    join(await getDatabasesPath(), 'carWash_database.db'),
-
-    //2. 데이터 베이스 테이블 생성 (carWashs)
+  // Avoid errors caused by flutter upgrade.
+  // Importing 'package:flutter/widgets.dart' is required.
+  WidgetsFlutterBinding.ensureInitialized();
+  // Open the database and store the reference.
+  final database = openDatabase(
+    // Set the path to the database. Note: Using the `join` function from the
+    // `path` package is best practice to ensure the path is correctly
+    // constructed for each platform.
+    join(await getDatabasesPath(), 'car_database.db'),
+    // When the database is first created, create a table to store dogs.
     onCreate: (db, version) {
+      // Run the CREATE TABLE statement on the database.
       return db.execute(
-        "CREATE TABLE carWashes(date INTEGER PRIMARY KEY, amount REAL, memo TEXT)",
+        'CREATE TABLE carWashes(date INTEGER PRIMARY KEY, amount INTEGER, memo TEXT)',
       );
     },
-    //3. 버전 설정: onCreate 함수에서 수행, upgrade 와 downgrade를 수행하기 위한 경로 제공
+    // Set the version. This executes the onCreate function and provides a
+    // path to perform database upgrades and downgrades.
     version: 1,
   );
 
-  //db에 데이터 추가
-  Future<void> insertMemo(CarWash carWash) async {
-    // get the reference of the database
-    final Database db = await database;
+  var dbHelper = DBHelper(database);
 
-    // CarWash 를 올바른 테이블에 추가함
-    // conflictAlgorithm : 중복 추가 방지 (여기서는 이전 데이터 갱신)
-    await db.insert(
-      'carWashes',
-      carWash.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
+  // Create a Dog and add it to the dogs table
+  var wash1 = CarWash(amount: 19000, date: 20210622, memo: '실내, 실외 세차');
 
-  //db 데이터 리스트 조회
-  Future<List<CarWash>> carwashes() async {
-    final Database db = await database;
+  await dbHelper.insertMemo(wash1);
 
-    final List<Map<String, dynamic>> maps = await db.query('carWashes');
+  // Now, use the method above to retrieve all the dogs.
+  print(await (dbHelper.carWashes())); // Prints a list that include Fido.
 
-    // List<Map<String, dynamic>> 을 List<Dog> 으로 변환
-    return List.generate(maps.length, (idx) {
-      return CarWash(
-        date: maps[idx]['date'],
-        amount: maps[idx]['amount'],
-        memo: maps[idx]['memo'],
-      );
-    });
-  }
+  // Update Fido's age and save it to the database.
+  wash1 =
+      CarWash(date: wash1.date, amount: wash1.amount + 2000, memo: '휠 윤택 추가');
+  await dbHelper.updatememo(wash1);
 
-  final wash1 = CarWash(date: 20210621, amount: 19000, memo: '외부 및 내부 손세차');
+  // Print the updated results.
+  print(await dbHelper.carWashes()); // Prints Fido with age 42.
 
-  await insertMemo(wash1);
+  // Delete Fido from the database.
+  await dbHelper.deleteMemo(wash1.date);
 
-  print(await carwashes());
+  // Print the list of dogs (empty).
+  print(await dbHelper.carWashes());
 }
